@@ -1,72 +1,141 @@
 import cv2
 import os
+from ultralytics import YOLO
 
-from vision.feature_extractor import extract_visual_features
-
-
-def analyse_folder(folder_path, label):
-    results = []
-
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-            image_path = os.path.join(folder_path, filename)
-
-            image = cv2.imread(image_path)
-
-            if image is None:
-                print(f"Could not load: {image_path}")
-                continue
-
-            features = extract_visual_features(image)
-
-            results.append({
-                "filename": filename,
-                "label": label,
-                **features
-            })
-
-    return results
+from vision.leak_analyzer import analyse_leak_region
 
 
-leak_results = analyse_folder("data/leak", "LEAK")
-normal_results = analyse_folder("data/normal", "NORMAL")
+MODEL_PATH = "runs/detect/train/weights/best.pt"
+TEST_FOLDER = "datasets/pipe_leak/pipe leak.v6i.yolov8/test/images"
+OUTPUT_PATH = "results/mechsight_detection.jpg"
 
-all_results = leak_results + normal_results
+model = YOLO(MODEL_PATH)
+
+print("\nMECHSIGHT GUARDIAN")
+print("=" * 50)
+
+detection_found = False
+
+for filename in os.listdir(TEST_FOLDER):
+    if not filename.lower().endswith((".jpg", ".jpeg", ".png")):
+        continue
+
+    image_path = os.path.join(TEST_FOLDER, filename)
+    image = cv2.imread(image_path)
+
+    if image is None:
+        continue
+
+    results = model(image, conf=0.25, verbose=False)
+
+    for result in results:
+        if len(result.boxes) == 0:
+            continue
+
+        box = result.boxes[0]
+
+        confidence = float(box.conf[0])
+        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+
+        analysis = analyse_leak_region(
+            image,
+            [x1, y1, x2, y2]
+        )
+
+        print(f"Image: {filename}")
+        print("Leak detected: YES")
+        print(f"Confidence: {confidence:.2%}")
+        print(f"Area ratio: {analysis['area_ratio']:.2%}")
+        print(f"Edge density: {analysis['edge_density']:.4f}")
+        print(f"Brightness: {analysis['brightness']:.2f}")
+        print(f"Visual severity: {analysis['severity']}")
+
+        # Draw detection box
+        cv2.rectangle(
+            image,
+            (x1, y1),
+            (x2, y2),
+            (255, 0, 0),
+            3
+        )
+
+        # Main detection label
+        label = f"Leak {confidence:.0%} | {analysis['severity']}"
+
+        cv2.putText(
+            image,
+            label,
+            (x1, max(y1 - 10, 30)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 0, 0),
+            2
+        )
+
+        # OpenCV analysis panel
+        cv2.rectangle(
+            image,
+            (10, 10),
+            (340, 135),
+            (0, 0, 0),
+            -1
+        )
+
+        cv2.putText(
+            image,
+            "MECHSIGHT GUARDIAN",
+            (20, 35),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2
+        )
+
+        cv2.putText(
+            image,
+            f"Confidence: {confidence:.1%}",
+            (20, 65),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            1
+        )
+
+        cv2.putText(
+            image,
+            f"Area ratio: {analysis['area_ratio']:.1%}",
+            (20, 88),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            1
+        )
+
+        cv2.putText(
+            image,
+            f"Severity: {analysis['severity']}",
+            (20, 111),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            1
+        )
+
+        os.makedirs("results", exist_ok=True)
+
+        cv2.imwrite(
+            OUTPUT_PATH,
+            image
+        )
+
+        print(f"\nVisual result saved to: {OUTPUT_PATH}")
+
+        detection_found = True
+        break
+
+    if detection_found:
+        break
 
 
-print("\nMECHSIGHT FEATURE COMPARISON")
-print("=" * 170)
-
-print(
-    f"{'IMAGE':<18}"
-    f"{'LABEL':<9}"
-    f"{'EDGE':<10}"
-    f"{'SAT':<10}"
-    f"{'BRIGHT':<10}"
-    f"{'CONTRAST':<11}"
-    f"{'DARK':<10}"
-    f"{'HIGH SAT':<11}"
-    f"{'TEXTURE':<14}"
-    f"{'LOW DARK':<11}"
-    f"{'CENTRE':<10}"
-)
-
-print("-" * 170)
-
-for result in all_results:
-    print(
-        f"{result['filename']:<18}"
-        f"{result['label']:<9}"
-        f"{result['edge_density']:<10.4f}"
-        f"{result['mean_saturation']:<10.2f}"
-        f"{result['mean_brightness']:<10.2f}"
-        f"{result['contrast']:<11.2f}"
-        f"{result['dark_region_ratio']:<10.4f}"
-        f"{result['saturated_region_ratio']:<11.4f}"
-        f"{result['texture_variance']:<14.2f}"
-        f"{result['lower_dark_ratio']:<11.4f}"
-        f"{result['centre_contrast']:<10.2f}"
-    )
-
-print("=" * 170)
-print(f"Total images tested: {len(all_results)}")
+if not detection_found:
+    print("No leak detections found in test folder.")
