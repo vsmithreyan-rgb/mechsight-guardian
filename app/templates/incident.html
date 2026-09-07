@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ incident.incident_id }} - MechSight Guardian
+    </title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        .header {
+            padding: 26px 46px;
+            background: #111827;
+            border-bottom: 1px solid #334155;
+        }
+
+        .header a {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .header h1 {
+            margin: 14px 0 0;
+        }
+
+        .container {
+            padding: 34px 46px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .top-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+            margin-bottom: 28px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        .label {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 9px;
+        }
+
+        .value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .high {
+            color: #f87171;
+        }
+
+        .medium {
+            color: #fbbf24;
+        }
+
+        .low {
+            color: #4ade80;
+        }
+
+        .section {
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 22px;
+        }
+
+        .section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        .evidence-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .evidence-item {
+            background: #111827;
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .reason {
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .action-name {
+            font-family: Consolas, monospace;
+            font-size: 18px;
+            color: #93c5fd;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 14px;
+            margin-top: 20px;
+        }
+
+        button {
+            border: none;
+            border-radius: 9px;
+            padding: 12px 22px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .approve {
+            background: #22c55e;
+            color: #07140b;
+        }
+
+        .reject {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #334155;
+        }
+
+        .status-approved {
+            color: #4ade80;
+            background: rgba(34, 197, 94, 0.15);
+        }
+
+        .status-rejected {
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .status-awaiting {
+            color: #fbbf24;
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        @media (max-width: 900px) {
+
+            .top-grid,
+            .evidence-grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+
+    <div class="header">
+
+        <a href="/">
+            ← Back to Dashboard
+        </a>
+
+        <h1>
+            Incident {{ incident.incident_id }}
+        </h1>
+
+    </div>
+
+
+    <div class="container">
+
+
+        <div class="top-grid">
+
+
+            <div class="card">
+
+                <div class="label">
+                    Risk
+                </div>
+
+                <div
+                    class="value
+                    {% if incident.risk == 'HIGH' %}
+                        high
+                    {% elif incident.risk == 'MEDIUM' %}
+                        medium
+                    {% else %}
+                        low
+                    {% endif %}
+                    "
+                >
+                    {{ incident.risk }}
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="label">
+                    Priority
+                </div>
+
+                <div class="value">
+                    {{ incident.priority }}
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="label">
+                    Status
+                </div>
+
+                {% if incident.status == "APPROVED" %}
+
+                    <span
+                        class="status-badge status-approved"
+                    >
+                        APPROVED
+                    </span>
+
+                {% elif incident.status == "REJECTED" %}
+
+                    <span
+                        class="status-badge status-rejected"
+                    >
+                        REJECTED
+                    </span>
+
+                {% else %}
+
+                    <span
+                        class="status-badge status-awaiting"
+                    >
+                        {{ incident.status }}
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="label">
+                    Human Approval
+                </div>
+
+                <div class="value">
+
+                    {% if incident.human_approval_required %}
+                        REQUIRED
+                    {% else %}
+                        NOT REQUIRED
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <div class="section">
+
+            <h2>
+                Recommended Agent Action
+            </h2>
+
+            <div class="action-name">
+
+                {{ incident.recommended_action }}
+
+            </div>
+
+            <p class="reason">
+
+                {{ incident.reason }}
+
+            </p>
+
+        </div>
+
+
+        <div class="section">
+
+            <h2>
+                Visual Evidence
+            </h2>
+
+            <div class="evidence-grid">
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Frames Analysed
+                    </div>
+
+                    <div class="value">
+                        {{ evidence.get('frames_analysed', 'N/A') }}
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        YOLO Persistence
+                    </div>
+
+                    <div class="value">
+
+                        {% if evidence.get('yolo_persistence') is not none %}
+
+                            {{
+                                "%.1f"|format(
+                                    evidence.get('yolo_persistence', 0)
+                                    * 100
+                                )
+                            }}%
+
+                        {% else %}
+                            N/A
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Combined Leak Evidence
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            "%.1f"|format(
+                                evidence.get(
+                                    'combined_leak_evidence',
+                                    0
+                                ) * 100
+                            )
+                        }}%
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Avg YOLO Confidence
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            "%.1f"|format(
+                                evidence.get(
+                                    'average_yolo_confidence',
+                                    0
+                                ) * 100
+                            )
+                        }}%
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Avg OpenCV Motion
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            "%.2f"|format(
+                                evidence.get(
+                                    'average_opencv_motion',
+                                    0
+                                ) * 100
+                            )
+                        }}%
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        OpenCV Growth Trend
+                    </div>
+
+                    <div class="value">
+                        {{
+                            evidence.get(
+                                'opencv_growth_trend',
+                                'N/A'
+                            )
+                        }}
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Early Change Region
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            "%.2f"|format(
+                                evidence.get(
+                                    'early_change_region',
+                                    0
+                                ) * 100
+                            )
+                        }}%
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Late Change Region
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            "%.2f"|format(
+                                evidence.get(
+                                    'late_change_region',
+                                    0
+                                ) * 100
+                            )
+                        }}%
+
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        YOLO Area Trend
+                    </div>
+
+                    <div class="value">
+
+                        {{
+                            evidence.get(
+                                'yolo_area_trend',
+                                'N/A'
+                            )
+                        }}
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+
+        <div class="section">
+
+            <h2>
+                Human Decision
+            </h2>
+
+
+            {% if incident.status == "AWAITING_APPROVAL" %}
+
+                <p class="reason">
+                    This action requires operator approval
+                    before the workflow continues.
+                </p>
+
+                <div class="buttons">
+
+                    <form
+                        method="POST"
+                        action="/incident/{{ incident.incident_id }}/approve"
+                    >
+
+                        <button
+                            class="approve"
+                            type="submit"
+                        >
+                            Approve Action
+                        </button>
+
+                    </form>
+
+
+                    <form
+                        method="POST"
+                        action="/incident/{{ incident.incident_id }}/reject"
+                    >
+
+                        <button
+                            class="reject"
+                            type="submit"
+                        >
+                            Reject Action
+                        </button>
+
+                    </form>
+
+                </div>
+
+
+            {% else %}
+
+                <p class="reason">
+
+                    Current decision:
+                    <strong>
+                        {{ incident.status }}
+                    </strong>
+
+                    {% if incident.reviewed_by %}
+
+                        <br><br>
+
+                        Reviewed by:
+                        {{ incident.reviewed_by }}
+
+                    {% endif %}
+
+                </p>
+
+            {% endif %}
+
+
+        </div>
+
+
+    </div>
+
+
+</body>
+
+</html>
