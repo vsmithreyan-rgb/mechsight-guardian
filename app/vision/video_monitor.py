@@ -1,10 +1,38 @@
+import os
+import sys
+
 import cv2
 from ultralytics import YOLO
+
+
+# ==========================================================
+# PROJECT PATH SETUP
+# ==========================================================
+
+# video_monitor.py is inside app/vision/
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Parent folder = app/
+APP_DIR = os.path.dirname(CURRENT_DIR)
+
+# Allow Python to import files directly from app/
+if APP_DIR not in sys.path:
+    sys.path.insert(0, APP_DIR)
+
+
+# ==========================================================
+# IMPORT MECHSIGHT MODULES
+# ==========================================================
 
 from leak_analyzer import analyse_leak_region
 from motion_analyzer import analyse_motion
 from growth_analyzer import analyse_growth, classify_growth
+from decision_engine import make_decision
 
+
+# ==========================================================
+# SETTINGS
+# ==========================================================
 
 MODEL_PATH = "runs/detect/leak_v2/weights/best.pt"
 
@@ -26,9 +54,9 @@ def monitor_video(video_path):
 
     frame_number = 0
 
-    # ==================================================
+    # ======================================================
     # TEMPORAL STATISTICS
-    # ==================================================
+    # ======================================================
 
     yolo_detection_frames = 0
     temporal_evidence_frames = 0
@@ -37,20 +65,16 @@ def monitor_video(video_path):
     area_history = []
     confidence_history = []
     motion_history = []
-
-    # NEW:
-    # OpenCV changing-region history
     growth_history = []
 
     previous_frame = None
 
-    # Remember most recent leak location
     last_box = None
     missed_frames = 0
 
-    # ==================================================
+    # ======================================================
     # PROCESS VIDEO
-    # ==================================================
+    # ======================================================
 
     while True:
 
@@ -192,7 +216,7 @@ def monitor_video(video_path):
                 f"YOLO LEAK {confidence:.1%} | "
                 f"Area {current_area:.1%} | "
                 f"Motion {motion_ratio:.1%} | "
-                f"Growth evidence {growth_ratio:.2%} | "
+                f"Growth {growth_ratio:.2%} | "
                 f"{motion_level}"
             )
 
@@ -206,14 +230,12 @@ def monitor_video(video_path):
 
             if (
                 last_box is not None
-                and
-                missed_frames <= MAX_MISSED_FRAMES
-                and
-                previous_frame is not None
+                and missed_frames <= MAX_MISSED_FRAMES
+                and previous_frame is not None
             ):
 
                 # ------------------------------------------
-                # MOTION FROM PREVIOUS LEAK REGION
+                # MOTION USING LAST KNOWN LEAK REGION
                 # ------------------------------------------
 
                 motion = analyse_motion(
@@ -235,7 +257,7 @@ def monitor_video(video_path):
                 )
 
                 # ------------------------------------------
-                # GROWTH EVIDENCE DURING YOLO MISS
+                # GROWTH USING LAST KNOWN REGION
                 # ------------------------------------------
 
                 growth = analyse_growth(
@@ -269,8 +291,7 @@ def monitor_video(video_path):
                         f"YOLO MISS | "
                         f"TEMPORAL EVIDENCE | "
                         f"Motion {motion_ratio:.1%} | "
-                        f"Growth evidence "
-                        f"{growth_ratio:.2%} | "
+                        f"Growth {growth_ratio:.2%} | "
                         f"{motion_level}"
                     )
 
@@ -280,8 +301,7 @@ def monitor_video(video_path):
                         f"Frame {frame_number} | "
                         f"YOLO MISS | "
                         f"No strong temporal evidence | "
-                        f"Growth evidence "
-                        f"{growth_ratio:.2%}"
+                        f"Growth {growth_ratio:.2%}"
                     )
 
             else:
@@ -291,21 +311,17 @@ def monitor_video(video_path):
                     f"No leak evidence"
                 )
 
-            # Forget stale leak location
-            if (
-                missed_frames
-                > MAX_MISSED_FRAMES
-            ):
-
+            # Forget stale detection
+            if missed_frames > MAX_MISSED_FRAMES:
                 last_box = None
 
         previous_frame = frame.copy()
 
     cap.release()
 
-    # ==================================================
+    # ======================================================
     # VIDEO SUMMARY
-    # ==================================================
+    # ======================================================
 
     print(
         "\nMECHSIGHT TEMPORAL VIDEO SUMMARY"
@@ -316,8 +332,7 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Frames analysed: "
-        f"{frame_number}"
+        f"Frames analysed: {frame_number}"
     )
 
     if frame_number == 0:
@@ -328,9 +343,9 @@ def monitor_video(video_path):
 
         return
 
-    # ==================================================
+    # ======================================================
     # PERSISTENCE
-    # ==================================================
+    # ======================================================
 
     yolo_persistence = (
         yolo_detection_frames
@@ -362,9 +377,9 @@ def monitor_video(video_path):
         f"{temporal_persistence:.1%}"
     )
 
-    # ==================================================
+    # ======================================================
     # AVERAGES
-    # ==================================================
+    # ======================================================
 
     if confidence_history:
 
@@ -418,17 +433,16 @@ def monitor_video(video_path):
         f"{average_motion:.1%}"
     )
 
-    # ==================================================
-    # ORIGINAL YOLO-AREA TREND
-    # ==================================================
+    # ======================================================
+    # YOLO BOUNDING-BOX AREA TREND
+    # ======================================================
 
     if (
         len(area_history) < 6
-        or
-        yolo_persistence < 0.50
+        or yolo_persistence < 0.50
     ):
 
-        trend = "UNCERTAIN"
+        yolo_trend = "UNCERTAIN"
 
     else:
 
@@ -440,17 +454,13 @@ def monitor_video(video_path):
         early_values = [
             area
             for _, area
-            in area_history[
-                :split_index
-            ]
+            in area_history[:split_index]
         ]
 
         late_values = [
             area
             for _, area
-            in area_history[
-                -split_index:
-            ]
+            in area_history[-split_index:]
         ]
 
         early_area = (
@@ -463,32 +473,26 @@ def monitor_video(video_path):
             / len(late_values)
         )
 
-        if (
-            late_area
-            > early_area * 1.15
-        ):
+        if late_area > early_area * 1.15:
 
-            trend = "GROWING"
+            yolo_trend = "GROWING"
 
-        elif (
-            late_area
-            < early_area * 0.85
-        ):
+        elif late_area < early_area * 0.85:
 
-            trend = "SHRINKING"
+            yolo_trend = "SHRINKING"
 
         else:
 
-            trend = "STABLE"
+            yolo_trend = "STABLE"
 
     print(
         f"YOLO-area trend: "
-        f"{trend}"
+        f"{yolo_trend}"
     )
 
-    # ==================================================
-    # NEW OPENCV GROWTH TREND
-    # ==================================================
+    # ======================================================
+    # OPENCV GROWTH ANALYSIS
+    # ======================================================
 
     growth_result = classify_growth(
         growth_history
@@ -499,15 +503,11 @@ def monitor_video(video_path):
     )
 
     early_growth = (
-        growth_result[
-            "early_growth"
-        ]
+        growth_result["early_growth"]
     )
 
     late_growth = (
-        growth_result[
-            "late_growth"
-        ]
+        growth_result["late_growth"]
     )
 
     print(
@@ -525,20 +525,17 @@ def monitor_video(video_path):
         f"{late_growth:.2%}"
     )
 
-    # ==================================================
-    # PROTOTYPE RISK REASONING
-    # ==================================================
+    # ======================================================
+    # PROTOTYPE RISK
+    # ======================================================
 
     if (
         temporal_persistence >= 0.80
         and
         (
-            opencv_growth_trend
-            == "GROWING"
-            or
-            average_area >= 0.20
-            or
-            average_motion >= 0.25
+            opencv_growth_trend == "GROWING"
+            or average_area >= 0.20
+            or average_motion >= 0.25
         )
     ):
 
@@ -546,10 +543,8 @@ def monitor_video(video_path):
 
     elif (
         temporal_persistence >= 0.50
-        or
-        average_area >= 0.07
-        or
-        average_motion >= 0.08
+        or average_area >= 0.07
+        or average_motion >= 0.08
     ):
 
         risk = "MEDIUM"
@@ -563,9 +558,37 @@ def monitor_video(video_path):
         f"{risk}"
     )
 
-    # ==================================================
+    # ======================================================
+    # AGENT DECISION ENGINE
+    # ======================================================
+
+    decision = make_decision(
+        risk=risk,
+        growth_trend=opencv_growth_trend,
+        persistence=temporal_persistence,
+        average_confidence=average_confidence,
+        average_motion=average_motion
+    )
+
+    action = decision[
+        "action"
+    ]
+
+    priority = decision[
+        "priority"
+    ]
+
+    approval_required = decision[
+        "human_approval_required"
+    ]
+
+    reason = decision[
+        "reason"
+    ]
+
+    # ======================================================
     # DECISION TRACE
-    # ==================================================
+    # ======================================================
 
     print(
         "\nDECISION TRACE"
@@ -593,7 +616,7 @@ def monitor_video(video_path):
 
     print(
         f"YOLO-area trend: "
-        f"{trend}."
+        f"{yolo_trend}."
     )
 
     print(
@@ -607,9 +630,41 @@ def monitor_video(video_path):
         f"{late_growth:.2%} late."
     )
 
+    # ======================================================
+    # AGENT ACTION
+    # ======================================================
+
     print(
-        f"Decision: prototype risk = "
-        f"{risk}."
+        "\nAGENT ACTION"
+    )
+
+    print(
+        "=" * 55
+    )
+
+    print(
+        f"Prototype risk: "
+        f"{risk}"
+    )
+
+    print(
+        f"Recommended action: "
+        f"{action}"
+    )
+
+    print(
+        f"Priority: "
+        f"{priority}"
+    )
+
+    print(
+        f"Human approval required: "
+        f"{'YES' if approval_required else 'NO'}"
+    )
+
+    print(
+        f"Reason: "
+        f"{reason}"
     )
 
 
