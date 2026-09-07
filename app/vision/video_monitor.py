@@ -9,25 +9,23 @@ from ultralytics import YOLO
 # PROJECT PATH SETUP
 # ==========================================================
 
-# video_monitor.py is inside app/vision/
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Parent folder = app/
 APP_DIR = os.path.dirname(CURRENT_DIR)
 
-# Allow Python to import files directly from app/
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
 
 # ==========================================================
-# IMPORT MECHSIGHT MODULES
+# MECHSIGHT MODULES
 # ==========================================================
 
 from leak_analyzer import analyse_leak_region
 from motion_analyzer import analyse_motion
 from growth_analyzer import analyse_growth, classify_growth
+
 from decision_engine import make_decision
+from database.incident_manager import create_incident
 
 
 # ==========================================================
@@ -55,7 +53,7 @@ def monitor_video(video_path):
     frame_number = 0
 
     # ======================================================
-    # TEMPORAL STATISTICS
+    # STATISTICS
     # ======================================================
 
     yolo_detection_frames = 0
@@ -127,7 +125,7 @@ def monitor_video(video_path):
             break
 
         # ==================================================
-        # 2. YOLO DETECTED LEAK
+        # 2. LEAK DETECTED
         # ==================================================
 
         if detected_box is not None:
@@ -163,7 +161,7 @@ def monitor_video(video_path):
             )
 
             # ----------------------------------------------
-            # OPENCV MOTION ANALYSIS
+            # OPENCV MOTION
             # ----------------------------------------------
 
             motion_ratio = 0.0
@@ -190,7 +188,7 @@ def monitor_video(video_path):
             )
 
             # ----------------------------------------------
-            # OPENCV GROWTH ANALYSIS
+            # OPENCV GROWTH
             # ----------------------------------------------
 
             growth_ratio = 0.0
@@ -221,7 +219,7 @@ def monitor_video(video_path):
             )
 
         # ==================================================
-        # 3. YOLO MISSED LEAK
+        # 3. YOLO MISS
         # ==================================================
 
         else:
@@ -235,7 +233,7 @@ def monitor_video(video_path):
             ):
 
                 # ------------------------------------------
-                # MOTION USING LAST KNOWN LEAK REGION
+                # OPENCV MOTION USING LAST KNOWN BOX
                 # ------------------------------------------
 
                 motion = analyse_motion(
@@ -257,7 +255,7 @@ def monitor_video(video_path):
                 )
 
                 # ------------------------------------------
-                # GROWTH USING LAST KNOWN REGION
+                # OPENCV GROWTH USING LAST KNOWN BOX
                 # ------------------------------------------
 
                 growth = analyse_growth(
@@ -311,7 +309,6 @@ def monitor_video(video_path):
                     f"No leak evidence"
                 )
 
-            # Forget stale detection
             if missed_frames > MAX_MISSED_FRAMES:
                 last_box = None
 
@@ -337,10 +334,7 @@ def monitor_video(video_path):
 
     if frame_number == 0:
 
-        print(
-            "No frames available."
-        )
-
+        print("No frames available.")
         return
 
     # ======================================================
@@ -389,7 +383,6 @@ def monitor_video(video_path):
         )
 
     else:
-
         average_confidence = 0.0
 
     if area_history:
@@ -404,7 +397,6 @@ def monitor_video(video_path):
         )
 
     else:
-
         average_area = 0.0
 
     if motion_history:
@@ -415,7 +407,6 @@ def monitor_video(video_path):
         )
 
     else:
-
         average_motion = 0.0
 
     print(
@@ -434,7 +425,7 @@ def monitor_video(video_path):
     )
 
     # ======================================================
-    # YOLO BOUNDING-BOX AREA TREND
+    # YOLO AREA TREND
     # ======================================================
 
     if (
@@ -491,7 +482,7 @@ def monitor_video(video_path):
     )
 
     # ======================================================
-    # OPENCV GROWTH ANALYSIS
+    # OPENCV GROWTH TREND
     # ======================================================
 
     growth_result = classify_growth(
@@ -559,7 +550,7 @@ def monitor_video(video_path):
     )
 
     # ======================================================
-    # AGENT DECISION ENGINE
+    # AGENT DECISION
     # ======================================================
 
     decision = make_decision(
@@ -570,21 +561,14 @@ def monitor_video(video_path):
         average_motion=average_motion
     )
 
-    action = decision[
-        "action"
-    ]
-
-    priority = decision[
-        "priority"
-    ]
+    action = decision["action"]
+    priority = decision["priority"]
 
     approval_required = decision[
         "human_approval_required"
     ]
 
-    reason = decision[
-        "reason"
-    ]
+    reason = decision["reason"]
 
     # ======================================================
     # DECISION TRACE
@@ -643,18 +627,15 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Prototype risk: "
-        f"{risk}"
+        f"Prototype risk: {risk}"
     )
 
     print(
-        f"Recommended action: "
-        f"{action}"
+        f"Recommended action: {action}"
     )
 
     print(
-        f"Priority: "
-        f"{priority}"
+        f"Priority: {priority}"
     )
 
     print(
@@ -663,9 +644,126 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Reason: "
-        f"{reason}"
+        f"Reason: {reason}"
     )
+
+    # ======================================================
+    # INCIDENT WORKFLOW
+    # ======================================================
+
+    # Create an incident when MechSight recommends
+    # an inspection/escalation action.
+    incident_actions = {
+        "ESCALATE_AND_INSPECT",
+        "REQUEST_HUMAN_INSPECTION",
+        "SCHEDULE_REINSPECTION"
+    }
+
+    if action in incident_actions:
+
+        evidence = {
+            "video_source": video_path,
+
+            "frames_analysed":
+                frame_number,
+
+            "yolo_persistence":
+                round(
+                    yolo_persistence,
+                    4
+                ),
+
+            "combined_leak_evidence":
+                round(
+                    temporal_persistence,
+                    4
+                ),
+
+            "average_yolo_confidence":
+                round(
+                    average_confidence,
+                    4
+                ),
+
+            "average_detected_area":
+                round(
+                    average_area,
+                    4
+                ),
+
+            "average_opencv_motion":
+                round(
+                    average_motion,
+                    4
+                ),
+
+            "yolo_area_trend":
+                yolo_trend,
+
+            "opencv_growth_trend":
+                opencv_growth_trend,
+
+            "early_change_region":
+                round(
+                    early_growth,
+                    6
+                ),
+
+            "late_change_region":
+                round(
+                    late_growth,
+                    6
+                )
+        }
+
+        incident = create_incident(
+            risk=risk,
+            action=action,
+            priority=priority,
+
+            human_approval_required=(
+                approval_required
+            ),
+
+            reason=reason,
+            evidence=evidence
+        )
+
+        print(
+            "\nINCIDENT CREATED"
+        )
+
+        print(
+            "=" * 55
+        )
+
+        print(
+            f"Incident ID: "
+            f"{incident['incident_id']}"
+        )
+
+        print(
+            f"Status: "
+            f"{incident['status']}"
+        )
+
+        print(
+            f"Stored evidence: YES"
+        )
+
+        print(
+            "Incident record saved to:"
+        )
+
+        print(
+            "data/incidents/incidents.json"
+        )
+
+    else:
+
+        print(
+            "\nNo incident record required."
+        )
 
 
 if __name__ == "__main__":
