@@ -39,6 +39,10 @@ MAX_MISSED_FRAMES = 5
 MIN_MOTION_EVIDENCE = 0.01
 
 
+# ==========================================================
+# VIDEO MONITOR
+# ==========================================================
+
 def monitor_video(video_path):
 
     model = YOLO(MODEL_PATH)
@@ -232,10 +236,6 @@ def monitor_video(video_path):
                 and previous_frame is not None
             ):
 
-                # ------------------------------------------
-                # OPENCV MOTION USING LAST KNOWN BOX
-                # ------------------------------------------
-
                 motion = analyse_motion(
                     previous_frame,
                     frame,
@@ -254,10 +254,6 @@ def monitor_video(video_path):
                     motion_ratio
                 )
 
-                # ------------------------------------------
-                # OPENCV GROWTH USING LAST KNOWN BOX
-                # ------------------------------------------
-
                 growth = analyse_growth(
                     previous_frame,
                     frame,
@@ -272,14 +268,7 @@ def monitor_video(video_path):
                     growth_ratio
                 )
 
-                # ------------------------------------------
-                # TEMPORAL SUPPORT
-                # ------------------------------------------
-
-                if (
-                    motion_ratio
-                    >= MIN_MOTION_EVIDENCE
-                ):
+                if motion_ratio >= MIN_MOTION_EVIDENCE:
 
                     temporal_evidence_frames += 1
                     held_detection_frames += 1
@@ -335,7 +324,8 @@ def monitor_video(video_path):
     if frame_number == 0:
 
         print("No frames available.")
-        return
+
+        return None
 
     # ======================================================
     # PERSISTENCE
@@ -383,6 +373,7 @@ def monitor_video(video_path):
         )
 
     else:
+
         average_confidence = 0.0
 
     if area_history:
@@ -397,6 +388,7 @@ def monitor_video(video_path):
         )
 
     else:
+
         average_area = 0.0
 
     if motion_history:
@@ -407,6 +399,7 @@ def monitor_video(video_path):
         )
 
     else:
+
         average_motion = 0.0
 
     print(
@@ -651,8 +644,6 @@ def monitor_video(video_path):
     # INCIDENT WORKFLOW
     # ======================================================
 
-    # Create an incident when MechSight recommends
-    # an inspection/escalation action.
     incident_actions = {
         "ESCALATE_AND_INSPECT",
         "REQUEST_HUMAN_INSPECTION",
@@ -748,7 +739,7 @@ def monitor_video(video_path):
         )
 
         print(
-            f"Stored evidence: YES"
+            "Stored evidence: YES"
         )
 
         print(
@@ -759,12 +750,21 @@ def monitor_video(video_path):
             "data/incidents/incidents.json"
         )
 
+        # Return the newly created incident to the web app.
+        return incident
+
     else:
 
         print(
             "\nNo incident record required."
         )
 
+        return None
+
+
+# ==========================================================
+# DIRECT TERMINAL TEST
+# ==========================================================
 
 if __name__ == "__main__":
 
