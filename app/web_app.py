@@ -10,6 +10,7 @@ from flask import (
     abort,
     request,
     flash,
+    send_from_directory,
 )
 
 from werkzeug.utils import secure_filename
@@ -566,6 +567,31 @@ def reject_incident(
         )
     )
 
+# ==========================================================
+# SERVE VISUAL EVIDENCE
+# ==========================================================
+
+# ==========================================================
+# SERVE VISUAL EVIDENCE
+# ==========================================================
+
+@app.route("/evidence/<path:filename>")
+def evidence_file(filename):
+
+    project_root = os.path.dirname(
+        CURRENT_DIR
+    )
+
+    evidence_folder = os.path.join(
+        project_root,
+        "data",
+        "evidence",
+    )
+
+    return send_from_directory(
+        evidence_folder,
+        filename,
+    )
 
 # ==========================================================
 # RUN APP

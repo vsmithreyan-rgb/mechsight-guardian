@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -9,11 +10,19 @@ from ultralytics import YOLO
 # PROJECT PATH SETUP
 # ==========================================================
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_DIR = os.path.dirname(CURRENT_DIR)
+CURRENT_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+APP_DIR = os.path.dirname(
+    CURRENT_DIR
+)
 
 if APP_DIR not in sys.path:
-    sys.path.insert(0, APP_DIR)
+    sys.path.insert(
+        0,
+        APP_DIR,
+    )
 
 
 # ==========================================================
@@ -22,10 +31,15 @@ if APP_DIR not in sys.path:
 
 from leak_analyzer import analyse_leak_region
 from motion_analyzer import analyse_motion
-from growth_analyzer import analyse_growth, classify_growth
+from growth_analyzer import (
+    analyse_growth,
+    classify_growth,
+)
+from evidence_capture import save_evidence_frame
 
 from decision_engine import make_decision
 from database.incident_manager import create_incident
+from cloud.dynamodb_manager import save_incident_to_dynamodb
 
 
 # ==========================================================
@@ -34,9 +48,60 @@ from database.incident_manager import create_incident
 
 MODEL_PATH = "runs/detect/leak_v2/weights/best.pt"
 
+INCIDENT_FILE = "data/incidents/incidents.json"
+
 CONFIDENCE_THRESHOLD = 0.25
 MAX_MISSED_FRAMES = 5
 MIN_MOTION_EVIDENCE = 0.01
+
+
+# ==========================================================
+# LOCAL INCIDENT UPDATE
+# ==========================================================
+
+def update_local_incident(updated_incident):
+    """
+    Update an already-created incident in the
+    local JSON store after evidence images have
+    been generated.
+    """
+
+    if not os.path.exists(INCIDENT_FILE):
+        return
+
+    try:
+        with open(
+            INCIDENT_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            incidents = json.load(file)
+
+    except (
+        json.JSONDecodeError,
+        OSError,
+    ):
+        return
+
+    for index, incident in enumerate(incidents):
+
+        if (
+            incident.get("incident_id")
+            == updated_incident.get("incident_id")
+        ):
+            incidents[index] = updated_incident
+            break
+
+    with open(
+        INCIDENT_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            incidents,
+            file,
+            indent=4,
+        )
 
 
 # ==========================================================
@@ -47,14 +112,18 @@ def monitor_video(video_path):
 
     model = YOLO(MODEL_PATH)
 
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture(
+        video_path
+    )
 
     if not cap.isOpened():
         raise FileNotFoundError(
             f"Could not open video: {video_path}"
         )
 
+
     frame_number = 0
+
 
     # ======================================================
     # STATISTICS
@@ -70,9 +139,20 @@ def monitor_video(video_path):
     growth_history = []
 
     previous_frame = None
-
     last_box = None
     missed_frames = 0
+
+
+    # ======================================================
+    # VISUAL EVIDENCE CAPTURE
+    # ======================================================
+
+    early_evidence_frame = None
+    early_evidence_box = None
+
+    late_evidence_frame = None
+    late_evidence_box = None
+
 
     # ======================================================
     # PROCESS VIDEO
@@ -87,14 +167,21 @@ def monitor_video(video_path):
 
         frame_number += 1
 
+
+        # --------------------------------------------------
+        # YOLO INFERENCE
+        # --------------------------------------------------
+
         results = model(
             frame,
             conf=CONFIDENCE_THRESHOLD,
-            verbose=False
+            verbose=False,
         )
+
 
         detected_box = None
         confidence = None
+
 
         # ==================================================
         # 1. YOLO PERCEPTION
@@ -105,28 +192,35 @@ def monitor_video(video_path):
             if len(result.boxes) == 0:
                 continue
 
+
             best_box = max(
                 result.boxes,
-                key=lambda box: float(box.conf[0])
+                key=lambda box: float(
+                    box.conf[0]
+                ),
             )
+
 
             confidence = float(
                 best_box.conf[0]
             )
 
+
             x1, y1, x2, y2 = map(
                 int,
-                best_box.xyxy[0].tolist()
+                best_box.xyxy[0].tolist(),
             )
+
 
             detected_box = [
                 x1,
                 y1,
                 x2,
-                y2
+                y2,
             ]
 
             break
+
 
         # ==================================================
         # 2. LEAK DETECTED
@@ -140,29 +234,48 @@ def monitor_video(video_path):
             yolo_detection_frames += 1
             temporal_evidence_frames += 1
 
+
+            # ----------------------------------------------
+            # SAVE EARLY / LATE FRAME IN MEMORY
+            # ----------------------------------------------
+
+            if early_evidence_frame is None:
+
+                early_evidence_frame = frame.copy()
+                early_evidence_box = detected_box.copy()
+
+
+            late_evidence_frame = frame.copy()
+            late_evidence_box = detected_box.copy()
+
+
             # ----------------------------------------------
             # LEAK REGION ANALYSIS
             # ----------------------------------------------
 
             analysis = analyse_leak_region(
                 frame,
-                detected_box
+                detected_box,
             )
+
 
             current_area = analysis[
                 "area_ratio"
             ]
 
+
             area_history.append(
                 (
                     frame_number,
-                    current_area
+                    current_area,
                 )
             )
+
 
             confidence_history.append(
                 confidence
             )
+
 
             # ----------------------------------------------
             # OPENCV MOTION
@@ -171,25 +284,30 @@ def monitor_video(video_path):
             motion_ratio = 0.0
             motion_level = "NONE"
 
+
             if previous_frame is not None:
 
                 motion = analyse_motion(
                     previous_frame,
                     frame,
-                    detected_box
+                    detected_box,
                 )
+
 
                 motion_ratio = motion[
                     "motion_ratio"
                 ]
 
+
                 motion_level = motion[
                     "motion_level"
                 ]
 
+
             motion_history.append(
                 motion_ratio
             )
+
 
             # ----------------------------------------------
             # OPENCV GROWTH
@@ -197,21 +315,25 @@ def monitor_video(video_path):
 
             growth_ratio = 0.0
 
+
             if previous_frame is not None:
 
                 growth = analyse_growth(
                     previous_frame,
                     frame,
-                    detected_box
+                    detected_box,
                 )
+
 
                 growth_ratio = growth[
                     "largest_change_ratio"
                 ]
 
+
                 growth_history.append(
                     growth_ratio
                 )
+
 
             print(
                 f"Frame {frame_number} | "
@@ -222,6 +344,7 @@ def monitor_video(video_path):
                 f"{motion_level}"
             )
 
+
         # ==================================================
         # 3. YOLO MISS
         # ==================================================
@@ -229,6 +352,7 @@ def monitor_video(video_path):
         else:
 
             missed_frames += 1
+
 
             if (
                 last_box is not None
@@ -239,39 +363,47 @@ def monitor_video(video_path):
                 motion = analyse_motion(
                     previous_frame,
                     frame,
-                    last_box
+                    last_box,
                 )
+
 
                 motion_ratio = motion[
                     "motion_ratio"
                 ]
 
+
                 motion_level = motion[
                     "motion_level"
                 ]
+
 
                 motion_history.append(
                     motion_ratio
                 )
 
+
                 growth = analyse_growth(
                     previous_frame,
                     frame,
-                    last_box
+                    last_box,
                 )
+
 
                 growth_ratio = growth[
                     "largest_change_ratio"
                 ]
 
+
                 growth_history.append(
                     growth_ratio
                 )
+
 
                 if motion_ratio >= MIN_MOTION_EVIDENCE:
 
                     temporal_evidence_frames += 1
                     held_detection_frames += 1
+
 
                     print(
                         f"Frame {frame_number} | "
@@ -298,12 +430,16 @@ def monitor_video(video_path):
                     f"No leak evidence"
                 )
 
+
             if missed_frames > MAX_MISSED_FRAMES:
                 last_box = None
 
+
         previous_frame = frame.copy()
 
+
     cap.release()
+
 
     # ======================================================
     # VIDEO SUMMARY
@@ -321,11 +457,15 @@ def monitor_video(video_path):
         f"Frames analysed: {frame_number}"
     )
 
+
     if frame_number == 0:
 
-        print("No frames available.")
+        print(
+            "No frames available."
+        )
 
         return None
+
 
     # ======================================================
     # PERSISTENCE
@@ -336,10 +476,12 @@ def monitor_video(video_path):
         / frame_number
     )
 
+
     temporal_persistence = (
         temporal_evidence_frames
         / frame_number
     )
+
 
     print(
         f"YOLO detection frames: "
@@ -361,6 +503,7 @@ def monitor_video(video_path):
         f"{temporal_persistence:.1%}"
     )
 
+
     # ======================================================
     # AVERAGES
     # ======================================================
@@ -375,6 +518,7 @@ def monitor_video(video_path):
     else:
 
         average_confidence = 0.0
+
 
     if area_history:
 
@@ -391,6 +535,7 @@ def monitor_video(video_path):
 
         average_area = 0.0
 
+
     if motion_history:
 
         average_motion = (
@@ -401,6 +546,7 @@ def monitor_video(video_path):
     else:
 
         average_motion = 0.0
+
 
     print(
         f"Average detected area: "
@@ -417,6 +563,7 @@ def monitor_video(video_path):
         f"{average_motion:.1%}"
     )
 
+
     # ======================================================
     # YOLO AREA TREND
     # ======================================================
@@ -432,8 +579,9 @@ def monitor_video(video_path):
 
         split_index = max(
             1,
-            len(area_history) // 3
+            len(area_history) // 3,
         )
+
 
         early_values = [
             area
@@ -441,21 +589,25 @@ def monitor_video(video_path):
             in area_history[:split_index]
         ]
 
+
         late_values = [
             area
             for _, area
             in area_history[-split_index:]
         ]
 
+
         early_area = (
             sum(early_values)
             / len(early_values)
         )
 
+
         late_area = (
             sum(late_values)
             / len(late_values)
         )
+
 
         if late_area > early_area * 1.15:
 
@@ -469,10 +621,12 @@ def monitor_video(video_path):
 
             yolo_trend = "STABLE"
 
+
     print(
         f"YOLO-area trend: "
         f"{yolo_trend}"
     )
+
 
     # ======================================================
     # OPENCV GROWTH TREND
@@ -482,17 +636,27 @@ def monitor_video(video_path):
         growth_history
     )
 
+
     opencv_growth_trend = (
-        growth_result["trend"]
+        growth_result[
+            "trend"
+        ]
     )
+
 
     early_growth = (
-        growth_result["early_growth"]
+        growth_result[
+            "early_growth"
+        ]
     )
 
+
     late_growth = (
-        growth_result["late_growth"]
+        growth_result[
+            "late_growth"
+        ]
     )
+
 
     print(
         f"OpenCV growth trend: "
@@ -508,6 +672,7 @@ def monitor_video(video_path):
         f"Late changing-region size: "
         f"{late_growth:.2%}"
     )
+
 
     # ======================================================
     # PROTOTYPE RISK
@@ -537,10 +702,12 @@ def monitor_video(video_path):
 
         risk = "LOW"
 
+
     print(
         f"Prototype risk level: "
         f"{risk}"
     )
+
 
     # ======================================================
     # AGENT DECISION
@@ -551,17 +718,29 @@ def monitor_video(video_path):
         growth_trend=opencv_growth_trend,
         persistence=temporal_persistence,
         average_confidence=average_confidence,
-        average_motion=average_motion
+        average_motion=average_motion,
     )
 
-    action = decision["action"]
-    priority = decision["priority"]
+
+    action = decision[
+        "action"
+    ]
+
+
+    priority = decision[
+        "priority"
+    ]
+
 
     approval_required = decision[
         "human_approval_required"
     ]
 
-    reason = decision["reason"]
+
+    reason = decision[
+        "reason"
+    ]
+
 
     # ======================================================
     # DECISION TRACE
@@ -581,9 +760,8 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Temporal evidence increased leak "
-        f"support to "
-        f"{temporal_persistence:.1%}."
+        f"Temporal evidence increased leak support "
+        f"to {temporal_persistence:.1%}."
     )
 
     print(
@@ -607,6 +785,7 @@ def monitor_video(video_path):
         f"{late_growth:.2%} late."
     )
 
+
     # ======================================================
     # AGENT ACTION
     # ======================================================
@@ -620,15 +799,18 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Prototype risk: {risk}"
+        f"Prototype risk: "
+        f"{risk}"
     )
 
     print(
-        f"Recommended action: {action}"
+        f"Recommended action: "
+        f"{action}"
     )
 
     print(
-        f"Priority: {priority}"
+        f"Priority: "
+        f"{priority}"
     )
 
     print(
@@ -637,8 +819,10 @@ def monitor_video(video_path):
     )
 
     print(
-        f"Reason: {reason}"
+        f"Reason: "
+        f"{reason}"
     )
+
 
     # ======================================================
     # INCIDENT WORKFLOW
@@ -647,13 +831,16 @@ def monitor_video(video_path):
     incident_actions = {
         "ESCALATE_AND_INSPECT",
         "REQUEST_HUMAN_INSPECTION",
-        "SCHEDULE_REINSPECTION"
+        "SCHEDULE_REINSPECTION",
     }
+
 
     if action in incident_actions:
 
         evidence = {
-            "video_source": video_path,
+
+            "video_source":
+                video_path,
 
             "frames_analysed":
                 frame_number,
@@ -661,31 +848,31 @@ def monitor_video(video_path):
             "yolo_persistence":
                 round(
                     yolo_persistence,
-                    4
+                    4,
                 ),
 
             "combined_leak_evidence":
                 round(
                     temporal_persistence,
-                    4
+                    4,
                 ),
 
             "average_yolo_confidence":
                 round(
                     average_confidence,
-                    4
+                    4,
                 ),
 
             "average_detected_area":
                 round(
                     average_area,
-                    4
+                    4,
                 ),
 
             "average_opencv_motion":
                 round(
                     average_motion,
-                    4
+                    4,
                 ),
 
             "yolo_area_trend":
@@ -697,28 +884,129 @@ def monitor_video(video_path):
             "early_change_region":
                 round(
                     early_growth,
-                    6
+                    6,
                 ),
 
             "late_change_region":
                 round(
                     late_growth,
-                    6
-                )
+                    6,
+                ),
         }
+
+
+        # ==================================================
+        # CREATE INCIDENT
+        # ==================================================
 
         incident = create_incident(
             risk=risk,
             action=action,
             priority=priority,
-
             human_approval_required=(
                 approval_required
             ),
-
             reason=reason,
-            evidence=evidence
+            evidence=evidence,
         )
+
+
+        incident_id = (
+            incident[
+                "incident_id"
+            ]
+        )
+
+
+        # ==================================================
+        # SAVE VISUAL EVIDENCE FRAMES
+        # ==================================================
+
+        if (
+            early_evidence_frame
+            is not None
+        ):
+
+            early_path = (
+                save_evidence_frame(
+                    early_evidence_frame,
+                    incident_id,
+                    "early",
+                    early_evidence_box,
+                )
+            )
+
+
+            incident[
+                "evidence"
+            ][
+                "early_evidence_frame"
+            ] = early_path
+
+
+        if (
+            late_evidence_frame
+            is not None
+        ):
+
+            late_path = (
+                save_evidence_frame(
+                    late_evidence_frame,
+                    incident_id,
+                    "late",
+                    late_evidence_box,
+                )
+            )
+
+
+            incident[
+                "evidence"
+            ][
+                "late_evidence_frame"
+            ] = late_path
+
+
+        # ==================================================
+        # UPDATE LOCAL INCIDENT
+        # ==================================================
+
+        update_local_incident(
+            incident
+        )
+
+
+        # ==================================================
+        # UPDATE DYNAMODB AGAIN WITH FRAME PATHS
+        # ==================================================
+
+        try:
+
+            save_incident_to_dynamodb(
+                incident
+            )
+
+            print()
+            print(
+                "VISUAL EVIDENCE "
+                "SYNCED TO DYNAMODB"
+            )
+
+        except Exception as error:
+
+            print()
+            print(
+                "VISUAL EVIDENCE "
+                "DYNAMODB SYNC ERROR"
+            )
+
+            print(
+                str(error)
+            )
+
+
+        # ==================================================
+        # INCIDENT SUMMARY
+        # ==================================================
 
         print(
             "\nINCIDENT CREATED"
@@ -730,7 +1018,7 @@ def monitor_video(video_path):
 
         print(
             f"Incident ID: "
-            f"{incident['incident_id']}"
+            f"{incident_id}"
         )
 
         print(
@@ -742,24 +1030,46 @@ def monitor_video(video_path):
             "Stored evidence: YES"
         )
 
+
+        if (
+            early_evidence_frame
+            is not None
+        ):
+
+            print(
+                f"Early evidence frame: "
+                f"{incident['evidence']['early_evidence_frame']}"
+            )
+
+
+        if (
+            late_evidence_frame
+            is not None
+        ):
+
+            print(
+                f"Late evidence frame: "
+                f"{incident['evidence']['late_evidence_frame']}"
+            )
+
+
         print(
             "Incident record saved to:"
         )
 
         print(
-            "data/incidents/incidents.json"
+            INCIDENT_FILE
         )
 
-        # Return the newly created incident to the web app.
+
         return incident
 
-    else:
 
-        print(
-            "\nNo incident record required."
-        )
+    print(
+        "\nNo incident record required."
+    )
 
-        return None
+    return None
 
 
 # ==========================================================

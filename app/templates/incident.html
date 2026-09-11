@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -131,6 +131,73 @@
             font-weight: bold;
         }
 
+        /* ==================================================
+           VISUAL EVIDENCE COMPARISON
+        ================================================== */
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+            margin-top: 20px;
+        }
+
+        .comparison-card {
+            background: #111827;
+            border-radius: 12px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .comparison-title {
+            font-size: 17px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .comparison-subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+
+        .evidence-image {
+            width: 100%;
+            display: block;
+            border-radius: 9px;
+            border: 1px solid #334155;
+        }
+
+        .comparison-metric {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #0f172a;
+        }
+
+        .comparison-metric span {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .comparison-metric strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 19px;
+        }
+
+        .growth-indicator {
+            margin-top: 18px;
+            padding: 16px;
+            background: #111827;
+            border-radius: 10px;
+            border-left: 4px solid #60a5fa;
+        }
+
+        .growth-indicator strong {
+            color: #93c5fd;
+        }
+
         .buttons {
             display: flex;
             gap: 14px;
@@ -182,14 +249,16 @@
 
         @media (max-width: 900px) {
             .top-grid,
-            .evidence-grid {
+            .evidence-grid,
+            .comparison-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
 
         @media (max-width: 600px) {
             .top-grid,
-            .evidence-grid {
+            .evidence-grid,
+            .comparison-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -539,6 +608,166 @@
             </div>
 
         </div>
+
+
+        <!-- ==================================================
+             EARLY VS LATE VISUAL EVIDENCE
+        =================================================== -->
+
+        {% if evidence.get('early_evidence_frame')
+              or evidence.get('late_evidence_frame') %}
+
+        <div class="section">
+
+            <h2>
+                Early vs Late Visual Evidence
+            </h2>
+
+            <p class="reason">
+                MechSight captured representative frames from
+                the inspection sequence so the operator can
+                compare the detected condition over time.
+            </p>
+
+
+            <div class="comparison-grid">
+
+                {% if evidence.get('early_evidence_frame') %}
+
+                <div class="comparison-card">
+
+                    <div class="comparison-title">
+                        Early Detection
+                    </div>
+
+                    <div class="comparison-subtitle">
+                        Initial visual evidence
+                    </div>
+
+                    <img
+                        class="evidence-image"
+                        src="/evidence/{{
+                            evidence.get(
+                                'early_evidence_frame'
+                            ).replace('\\', '/').split('/')[-1]
+                        }}"
+                        alt="Early leak detection evidence"
+                    >
+
+                    <div class="comparison-metric">
+
+                        <span>
+                            Early changing-region size
+                        </span>
+
+                        <strong>
+                            {{
+                                "%.2f"|format(
+                                    evidence.get(
+                                        'early_change_region',
+                                        0
+                                    ) * 100
+                                )
+                            }}%
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                {% endif %}
+
+
+                {% if evidence.get('late_evidence_frame') %}
+
+                <div class="comparison-card">
+
+                    <div class="comparison-title">
+                        Late Detection
+                    </div>
+
+                    <div class="comparison-subtitle">
+                        Later visual evidence
+                    </div>
+
+                    <img
+                        class="evidence-image"
+                        src="/evidence/{{
+                            evidence.get(
+                                'late_evidence_frame'
+                            ).replace('\\', '/').split('/')[-1]
+                        }}"
+                        alt="Late leak detection evidence"
+                    >
+
+                    <div class="comparison-metric">
+
+                        <span>
+                            Late changing-region size
+                        </span>
+
+                        <strong>
+                            {{
+                                "%.2f"|format(
+                                    evidence.get(
+                                        'late_change_region',
+                                        0
+                                    ) * 100
+                                )
+                            }}%
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+
+            <div class="growth-indicator">
+
+                OpenCV temporal assessment:
+
+                <strong>
+                    {{
+                        evidence.get(
+                            'opencv_growth_trend',
+                            'N/A'
+                        )
+                    }}
+                </strong>
+
+                &nbsp;•&nbsp;
+
+                Changing region:
+
+                <strong>
+                    {{
+                        "%.2f"|format(
+                            evidence.get(
+                                'early_change_region',
+                                0
+                            ) * 100
+                        )
+                    }}%
+                    →
+                    {{
+                        "%.2f"|format(
+                            evidence.get(
+                                'late_change_region',
+                                0
+                            ) * 100
+                        )
+                    }}%
+                </strong>
+
+            </div>
+
+        </div>
+
+        {% endif %}
 
 
         <!-- ==================================================
