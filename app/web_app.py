@@ -15,6 +15,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from database.approval_manager import update_incident_approval
+from cloud.s3_manager import upload_inspection_video
 
 
 # ==========================================================
@@ -22,10 +23,17 @@ from database.approval_manager import update_incident_approval
 # ==========================================================
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-VISION_DIR = os.path.join(CURRENT_DIR, "vision")
+
+VISION_DIR = os.path.join(
+    CURRENT_DIR,
+    "vision",
+)
 
 if VISION_DIR not in sys.path:
-    sys.path.insert(0, VISION_DIR)
+    sys.path.insert(
+        0,
+        VISION_DIR,
+    )
 
 
 from video_monitor import monitor_video
@@ -40,6 +48,7 @@ app = Flask(__name__)
 app.secret_key = "mechsight-dev-secret"
 
 INCIDENT_FILE = "data/incidents/incidents.json"
+
 UPLOAD_FOLDER = "data/uploads"
 
 ALLOWED_VIDEO_EXTENSIONS = {
@@ -60,44 +69,75 @@ os.makedirs(
 
 def load_incidents():
 
-    if not os.path.exists(INCIDENT_FILE):
+    if not os.path.exists(
+        INCIDENT_FILE
+    ):
         return []
 
     try:
-
         with open(
             INCIDENT_FILE,
             "r",
             encoding="utf-8",
         ) as file:
 
-            return json.load(file)
+            return json.load(
+                file
+            )
 
     except (
         json.JSONDecodeError,
         OSError,
     ):
-
         return []
 
 
-def get_incident(incident_id):
+def save_incidents(
+    incidents
+):
+
+    os.makedirs(
+        os.path.dirname(
+            INCIDENT_FILE
+        ),
+        exist_ok=True,
+    )
+
+    with open(
+        INCIDENT_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        json.dump(
+            incidents,
+            file,
+            indent=4,
+        )
+
+
+def get_incident(
+    incident_id
+):
 
     incidents = load_incidents()
 
     for incident in incidents:
 
         if (
-            incident.get("incident_id")
+            incident.get(
+                "incident_id"
+            )
             == incident_id
         ):
-
             return incident
 
     return None
 
 
-def allowed_video(filename):
+def allowed_video(
+    filename
+):
 
     return (
         "." in filename
@@ -108,6 +148,48 @@ def allowed_video(filename):
         )[1].lower()
         in ALLOWED_VIDEO_EXTENSIONS
     )
+
+
+def attach_cloud_evidence(
+    incident_id,
+    cloud_upload,
+):
+
+    incidents = load_incidents()
+
+    for incident in incidents:
+
+        if (
+            incident.get(
+                "incident_id"
+            )
+            == incident_id
+        ):
+
+            evidence = incident.setdefault(
+                "evidence",
+                {},
+            )
+
+            evidence["aws_s3_video"] = {
+                "bucket": cloud_upload[
+                    "bucket"
+                ],
+                "key": cloud_upload[
+                    "key"
+                ],
+                "s3_uri": cloud_upload[
+                    "s3_uri"
+                ],
+            }
+
+            save_incidents(
+                incidents
+            )
+
+            return incident
+
+    return None
 
 
 # ==========================================================
@@ -126,14 +208,18 @@ def dashboard():
     high_risk = sum(
         1
         for incident in incidents
-        if incident.get("risk") == "HIGH"
+        if incident.get(
+            "risk"
+        ) == "HIGH"
     )
 
     awaiting_approval = sum(
         1
         for incident in incidents
         if (
-            incident.get("status")
+            incident.get(
+                "status"
+            )
             == "AWAITING_APPROVAL"
         )
     )
@@ -142,7 +228,9 @@ def dashboard():
         1
         for incident in incidents
         if (
-            incident.get("status")
+            incident.get(
+                "status"
+            )
             == "APPROVED"
         )
     )
@@ -158,7 +246,7 @@ def dashboard():
 
 
 # ==========================================================
-# VIDEO UPLOAD + ANALYSIS
+# VIDEO UPLOAD + AWS + ANALYSIS
 # ==========================================================
 
 @app.route(
@@ -167,6 +255,10 @@ def dashboard():
 )
 def upload_video():
 
+    # ------------------------------------------------------
+    # VALIDATE UPLOAD
+    # ------------------------------------------------------
+
     if "video" not in request.files:
 
         flash(
@@ -174,10 +266,14 @@ def upload_video():
         )
 
         return redirect(
-            url_for("dashboard")
+            url_for(
+                "dashboard"
+            )
         )
 
-    video = request.files["video"]
+    video = request.files[
+        "video"
+    ]
 
     if video.filename == "":
 
@@ -186,7 +282,9 @@ def upload_video():
         )
 
         return redirect(
-            url_for("dashboard")
+            url_for(
+                "dashboard"
+            )
         )
 
     if not allowed_video(
@@ -199,8 +297,14 @@ def upload_video():
         )
 
         return redirect(
-            url_for("dashboard")
+            url_for(
+                "dashboard"
+            )
         )
+
+    # ------------------------------------------------------
+    # SAVE LOCALLY
+    # ------------------------------------------------------
 
     filename = secure_filename(
         video.filename
@@ -223,13 +327,60 @@ def upload_video():
         f"Filename: {filename}"
     )
     print(
-        f"Saved to: {save_path}"
+        f"Saved locally to: {save_path}"
     )
     print()
 
-    # ======================================================
+    # ------------------------------------------------------
+    # UPLOAD ORIGINAL VIDEO TO AWS S3
+    # ------------------------------------------------------
+
+    cloud_upload = None
+
+    try:
+
+        print(
+            "UPLOADING INSPECTION VIDEO TO AWS S3..."
+        )
+
+        cloud_upload = (
+            upload_inspection_video(
+                save_path
+            )
+        )
+
+        print(
+            "AWS S3 UPLOAD SUCCESS"
+        )
+
+        print(
+            f"S3 URI: "
+            f"{cloud_upload['s3_uri']}"
+        )
+
+        print()
+
+    except Exception as error:
+
+        print()
+        print(
+            "AWS S3 UPLOAD ERROR"
+        )
+        print(
+            str(error)
+        )
+        print()
+
+        # Continue local analysis even if AWS
+        # temporarily fails.
+        flash(
+            "Cloud evidence upload failed, "
+            "but local analysis will continue."
+        )
+
+    # ------------------------------------------------------
     # RUN MECHSIGHT ANALYSIS
-    # ======================================================
+    # ------------------------------------------------------
 
     try:
 
@@ -255,18 +406,29 @@ def upload_video():
         )
 
         return redirect(
-            url_for("dashboard")
+            url_for(
+                "dashboard"
+            )
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # INCIDENT CREATED
-    # ======================================================
+    # ------------------------------------------------------
 
     if incident is not None:
 
         incident_id = incident[
             "incident_id"
         ]
+
+        # Attach AWS evidence reference
+        # to the saved incident record.
+        if cloud_upload is not None:
+
+            attach_cloud_evidence(
+                incident_id,
+                cloud_upload,
+            )
 
         print()
         print(
@@ -276,6 +438,14 @@ def upload_video():
             f"Opening incident: "
             f"{incident_id}"
         )
+
+        if cloud_upload is not None:
+
+            print(
+                "AWS evidence attached "
+                "to incident."
+            )
+
         print()
 
         return redirect(
@@ -285,9 +455,9 @@ def upload_video():
             )
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # NO INCIDENT REQUIRED
-    # ======================================================
+    # ------------------------------------------------------
 
     flash(
         "Video analysis completed. "
@@ -295,7 +465,9 @@ def upload_video():
     )
 
     return redirect(
-        url_for("dashboard")
+        url_for(
+            "dashboard"
+        )
     )
 
 

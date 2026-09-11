@@ -1,8 +1,7 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -15,7 +14,6 @@
     </title>
 
     <style>
-
         * {
             box-sizing: border-box;
         }
@@ -99,8 +97,7 @@
 
         .evidence-grid {
             display: grid;
-            grid-template-columns:
-                repeat(3, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 16px;
         }
 
@@ -119,6 +116,19 @@
             font-family: Consolas, monospace;
             font-size: 18px;
             color: #93c5fd;
+        }
+
+        .cloud-value {
+            font-family: Consolas, monospace;
+            color: #93c5fd;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .cloud-status {
+            color: #4ade80;
+            font-size: 20px;
+            font-weight: bold;
         }
 
         .buttons {
@@ -171,21 +181,30 @@
         }
 
         @media (max-width: 900px) {
-
             .top-grid,
             .evidence-grid {
-                grid-template-columns:
-                    repeat(2, 1fr);
+                grid-template-columns: repeat(2, 1fr);
             }
-
         }
 
-    </style>
+        @media (max-width: 600px) {
+            .top-grid,
+            .evidence-grid {
+                grid-template-columns: 1fr;
+            }
 
+            .container {
+                padding: 24px 18px;
+            }
+
+            .header {
+                padding: 22px 18px;
+            }
+        }
+    </style>
 </head>
 
 <body>
-
 
     <div class="header">
 
@@ -202,9 +221,11 @@
 
     <div class="container">
 
+        <!-- ==================================================
+             INCIDENT OVERVIEW
+        =================================================== -->
 
         <div class="top-grid">
-
 
             <div class="card">
 
@@ -250,25 +271,19 @@
 
                 {% if incident.status == "APPROVED" %}
 
-                    <span
-                        class="status-badge status-approved"
-                    >
+                    <span class="status-badge status-approved">
                         APPROVED
                     </span>
 
                 {% elif incident.status == "REJECTED" %}
 
-                    <span
-                        class="status-badge status-rejected"
-                    >
+                    <span class="status-badge status-rejected">
                         REJECTED
                     </span>
 
                 {% else %}
 
-                    <span
-                        class="status-badge status-awaiting"
-                    >
+                    <span class="status-badge status-awaiting">
                         {{ incident.status }}
                     </span>
 
@@ -295,9 +310,12 @@
 
             </div>
 
-
         </div>
 
+
+        <!-- ==================================================
+             AGENT DECISION
+        =================================================== -->
 
         <div class="section">
 
@@ -306,19 +324,19 @@
             </h2>
 
             <div class="action-name">
-
                 {{ incident.recommended_action }}
-
             </div>
 
             <p class="reason">
-
                 {{ incident.reason }}
-
             </p>
 
         </div>
 
+
+        <!-- ==================================================
+             VISUAL / AI EVIDENCE
+        =================================================== -->
 
         <div class="section">
 
@@ -327,7 +345,6 @@
             </h2>
 
             <div class="evidence-grid">
-
 
                 <div class="evidence-item">
 
@@ -354,8 +371,10 @@
 
                             {{
                                 "%.1f"|format(
-                                    evidence.get('yolo_persistence', 0)
-                                    * 100
+                                    evidence.get(
+                                        'yolo_persistence',
+                                        0
+                                    ) * 100
                                 )
                             }}%
 
@@ -441,12 +460,14 @@
                     </div>
 
                     <div class="value">
+
                         {{
                             evidence.get(
                                 'opencv_growth_trend',
                                 'N/A'
                             )
                         }}
+
                     </div>
 
                 </div>
@@ -515,18 +536,145 @@
 
                 </div>
 
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             AWS CLOUD EVIDENCE
+        =================================================== -->
+
+        {% if evidence.get('aws_s3_video') %}
+
+        <div class="section">
+
+            <h2>
+                ☁ AWS Cloud Evidence
+            </h2>
+
+            <p class="reason">
+                Original inspection footage is securely stored
+                in Amazon S3 and linked to this incident as
+                traceable cloud evidence.
+            </p>
+
+            <div class="evidence-grid">
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Cloud Provider
+                    </div>
+
+                    <div class="value">
+                        AWS
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Storage Service
+                    </div>
+
+                    <div class="value">
+                        Amazon S3
+                    </div>
+
+                </div>
+
+
+                <div class="evidence-item">
+
+                    <div class="label">
+                        Evidence Status
+                    </div>
+
+                    <div class="cloud-status">
+                        STORED
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="evidence-item"
+                style="margin-top: 16px;"
+            >
+
+                <div class="label">
+                    S3 Bucket
+                </div>
+
+                <div class="cloud-value">
+                    {{
+                        evidence[
+                            'aws_s3_video'
+                        ]['bucket']
+                    }}
+                </div>
+
+            </div>
+
+
+            <div
+                class="evidence-item"
+                style="margin-top: 16px;"
+            >
+
+                <div class="label">
+                    Evidence Object Key
+                </div>
+
+                <div class="cloud-value">
+                    {{
+                        evidence[
+                            'aws_s3_video'
+                        ]['key']
+                    }}
+                </div>
+
+            </div>
+
+
+            <div
+                class="evidence-item"
+                style="margin-top: 16px;"
+            >
+
+                <div class="label">
+                    S3 Evidence URI
+                </div>
+
+                <div class="cloud-value">
+                    {{
+                        evidence[
+                            'aws_s3_video'
+                        ]['s3_uri']
+                    }}
+                </div>
 
             </div>
 
         </div>
 
+        {% endif %}
+
+
+        <!-- ==================================================
+             HUMAN DECISION
+        =================================================== -->
 
         <div class="section">
 
             <h2>
                 Human Decision
             </h2>
-
 
             {% if incident.status == "AWAITING_APPROVAL" %}
 
@@ -568,12 +716,12 @@
 
                 </div>
 
-
             {% else %}
 
                 <p class="reason">
 
                     Current decision:
+
                     <strong>
                         {{ incident.status }}
                     </strong>
@@ -591,12 +739,9 @@
 
             {% endif %}
 
-
         </div>
 
-
     </div>
-
 
 </body>
 
