@@ -18,6 +18,9 @@ from werkzeug.utils import secure_filename
 from database.approval_manager import update_incident_approval
 from cloud.s3_manager import upload_inspection_video
 
+from cloud.maintenance_history import get_incident_history
+from maintenance_engine import build_maintenance_assessment
+
 
 # ==========================================================
 # PATH SETUP
@@ -235,7 +238,39 @@ def dashboard():
             == "APPROVED"
         )
     )
+    # ======================================================
+    # PREDICTIVE MAINTENANCE ASSESSMENT
+    # ======================================================
 
+    try:
+
+        maintenance_history = (
+            get_incident_history()
+        )
+
+        maintenance = (
+            build_maintenance_assessment(
+                maintenance_history
+            )
+        )
+
+    except Exception as error:
+
+        print(
+            f"Maintenance assessment error: {error}"
+        )
+
+        maintenance = {
+            "health_score": None,
+            "degradation_trend": "UNAVAILABLE",
+            "maintenance_priority": "UNAVAILABLE",
+            "recommended_action": "UNAVAILABLE",
+            "reason": (
+                "Maintenance history could not "
+                "be retrieved."
+            ),
+            "history_count": 0,
+        }
     return render_template(
         "dashboard.html",
         incidents=incidents,
@@ -243,6 +278,7 @@ def dashboard():
         high_risk=high_risk,
         awaiting_approval=awaiting_approval,
         approved=approved,
+                maintenance=maintenance,
     )
 
 

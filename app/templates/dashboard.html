@@ -9,9 +9,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>
-        MechSight Guardian
-    </title>
+    <title>MechSight Guardian</title>
 
     <style>
 
@@ -25,6 +23,7 @@
             background: #0f172a;
             color: white;
         }
+
 
         /* =========================================
            HEADER
@@ -47,6 +46,7 @@
             color: #94a3b8;
         }
 
+
         /* =========================================
            MAIN CONTAINER
         ========================================= */
@@ -54,6 +54,7 @@
         .container {
             padding: 36px 48px;
         }
+
 
         /* =========================================
            STAT CARDS
@@ -63,7 +64,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 22px;
-            margin-bottom: 36px;
+            margin-bottom: 30px;
         }
 
         .card {
@@ -86,8 +87,173 @@
             font-weight: bold;
         }
 
+
         /* =========================================
-           VIDEO INSPECTION PANEL
+           EQUIPMENT HEALTH
+        ========================================= */
+
+        .health-panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 28px;
+            margin-bottom: 36px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+        }
+
+        .health-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 26px;
+        }
+
+        .health-title h2 {
+            margin: 0 0 8px 0;
+        }
+
+        .health-title p {
+            margin: 0;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .health-score-box {
+            text-align: right;
+            min-width: 160px;
+        }
+
+        .health-score-label {
+            color: #94a3b8;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }
+
+        .health-score {
+            margin-top: 5px;
+            font-size: 42px;
+            font-weight: bold;
+            color: #60a5fa;
+        }
+
+
+        /* =========================================
+           HEALTH PROGRESS BAR
+        ========================================= */
+
+        .health-progress {
+            width: 100%;
+            margin-bottom: 26px;
+        }
+
+        .health-progress progress {
+            width: 100%;
+            height: 14px;
+            border: none;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .health-progress progress::-webkit-progress-bar {
+            background: #0f172a;
+            border-radius: 999px;
+        }
+
+        .health-progress progress::-webkit-progress-value {
+            background: #60a5fa;
+            border-radius: 999px;
+        }
+
+        .health-progress progress::-moz-progress-bar {
+            background: #60a5fa;
+            border-radius: 999px;
+        }
+
+
+        /* =========================================
+           MAINTENANCE DATA
+        ========================================= */
+
+        .maintenance-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+
+        .maintenance-item {
+            background: #111827;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .maintenance-label {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .maintenance-value {
+            font-size: 18px;
+            font-weight: bold;
+            word-break: break-word;
+        }
+
+        .priority-high {
+            color: #f87171;
+        }
+
+        .priority-urgent {
+            color: #fb7185;
+        }
+
+        .priority-low {
+            color: #4ade80;
+        }
+
+        .trend-stable {
+            color: #60a5fa;
+        }
+
+        .trend-worsening {
+            color: #f87171;
+        }
+
+        .trend-improving {
+            color: #4ade80;
+        }
+
+        .maintenance-recommendation {
+            margin-top: 20px;
+            background: #111827;
+            border-left: 4px solid #60a5fa;
+            border-radius: 10px;
+            padding: 18px 20px;
+        }
+
+        .maintenance-recommendation strong {
+            color: #60a5fa;
+        }
+
+        .maintenance-recommendation p {
+            margin-top: 8px;
+            margin-bottom: 0;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        .prototype-note {
+            margin-top: 16px;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+
+        /* =========================================
+           VIDEO INSPECTION
         ========================================= */
 
         .inspection-panel {
@@ -136,7 +302,6 @@
             color: white;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.15s;
         }
 
         .upload-button:hover {
@@ -149,8 +314,9 @@
             color: #64748b;
         }
 
+
         /* =========================================
-           INCIDENT SECTION
+           INCIDENT FEED
         ========================================= */
 
         .section-header {
@@ -169,10 +335,6 @@
             font-size: 13px;
             font-weight: bold;
         }
-
-        /* =========================================
-           TABLE
-        ========================================= */
 
         .table-container {
             background: #1e293b;
@@ -199,10 +361,6 @@
             font-size: 14px;
         }
 
-        tbody tr {
-            transition: background 0.15s;
-        }
-
         tbody tr:hover {
             background: #263449;
         }
@@ -210,10 +368,6 @@
         tbody tr:last-child td {
             border-bottom: none;
         }
-
-        /* =========================================
-           INCIDENT LINK
-        ========================================= */
 
         .incident-link {
             color: #60a5fa;
@@ -224,6 +378,7 @@
         .incident-link:hover {
             text-decoration: underline;
         }
+
 
         /* =========================================
            RISK
@@ -244,8 +399,9 @@
             font-weight: bold;
         }
 
+
         /* =========================================
-           STATUS BADGES
+           STATUS
         ========================================= */
 
         .status {
@@ -272,19 +428,11 @@
             color: #f87171;
         }
 
-        /* =========================================
-           ACTION
-        ========================================= */
-
         .action {
             font-family: Consolas, monospace;
             font-size: 13px;
             color: #cbd5e1;
         }
-
-        /* =========================================
-           EMPTY STATE
-        ========================================= */
 
         .empty {
             padding: 40px;
@@ -294,35 +442,60 @@
             border-radius: 14px;
         }
 
+
         /* =========================================
            RESPONSIVE
         ========================================= */
 
-        @media (max-width: 950px) {
+        @media (max-width: 1050px) {
 
             .stats {
                 grid-template-columns: repeat(2, 1fr);
             }
 
+            .maintenance-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+
             .container {
-                padding: 25px;
+                padding: 22px;
             }
 
             .header {
-                padding: 25px;
+                padding: 24px;
             }
 
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .maintenance-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .health-header {
+                flex-direction: column;
+            }
+
+            .health-score-box {
+                text-align: left;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
         }
 
     </style>
 
 </head>
 
+
 <body>
 
-    <!-- =========================================
-         HEADER
-    ========================================== -->
 
     <div class="header">
 
@@ -332,28 +505,23 @@
 
         <p>
             AI-powered industrial visual inspection,
-            temporal leak analysis and incident response
+            temporal leak analysis,
+            predictive maintenance and agentic incident response
         </p>
 
     </div>
 
-    <!-- =========================================
-         DASHBOARD
-    ========================================== -->
 
     <div class="container">
 
-        <!-- =====================================
-             STATISTICS
-        ====================================== -->
+
+        <!-- STATISTICS -->
 
         <div class="stats">
 
             <div class="card">
 
-                <h3>
-                    Total Incidents
-                </h3>
+                <h3>Total Incidents</h3>
 
                 <div class="number">
                     {{ total_incidents }}
@@ -361,11 +529,10 @@
 
             </div>
 
+
             <div class="card">
 
-                <h3>
-                    High Risk
-                </h3>
+                <h3>High Risk</h3>
 
                 <div class="number">
                     {{ high_risk }}
@@ -373,11 +540,10 @@
 
             </div>
 
+
             <div class="card">
 
-                <h3>
-                    Awaiting Approval
-                </h3>
+                <h3>Awaiting Approval</h3>
 
                 <div class="number">
                     {{ awaiting_approval }}
@@ -385,11 +551,10 @@
 
             </div>
 
+
             <div class="card">
 
-                <h3>
-                    Approved
-                </h3>
+                <h3>Approved</h3>
 
                 <div class="number">
                     {{ approved }}
@@ -399,9 +564,201 @@
 
         </div>
 
-        <!-- =====================================
-             VIDEO INSPECTION
-        ====================================== -->
+
+        <!-- EQUIPMENT HEALTH -->
+
+        <div class="health-panel">
+
+            <div class="health-header">
+
+                <div class="health-title">
+
+                    <h2>
+                        Equipment Health & Maintenance Intelligence
+                    </h2>
+
+                    <p>
+                        Historical inspection evidence from AWS DynamoDB
+                        is analysed to identify deterioration trends and
+                        recommend maintenance actions.
+                    </p>
+
+                </div>
+
+
+                <div class="health-score-box">
+
+                    <div class="health-score-label">
+                        Equipment Health
+                    </div>
+
+                    {% if maintenance.health_score is not none %}
+
+                    <div class="health-score">
+                        {{ maintenance.health_score }}%
+                    </div>
+
+                    {% else %}
+
+                    <div class="health-score">
+                        N/A
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+
+            {% if maintenance.health_score is not none %}
+
+
+            <div class="health-progress">
+
+                <progress
+                    value="{{ maintenance.health_score }}"
+                    max="100"
+                >
+                    {{ maintenance.health_score }}%
+                </progress>
+
+            </div>
+
+
+            <div class="maintenance-grid">
+
+
+                <div class="maintenance-item">
+
+                    <div class="maintenance-label">
+                        Degradation Trend
+                    </div>
+
+                    {% if maintenance.degradation_trend == "WORSENING" %}
+
+                    <div class="maintenance-value trend-worsening">
+                        WORSENING
+                    </div>
+
+                    {% elif maintenance.degradation_trend == "IMPROVING" %}
+
+                    <div class="maintenance-value trend-improving">
+                        IMPROVING
+                    </div>
+
+                    {% else %}
+
+                    <div class="maintenance-value trend-stable">
+                        {{ maintenance.degradation_trend }}
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="maintenance-item">
+
+                    <div class="maintenance-label">
+                        Maintenance Priority
+                    </div>
+
+                    {% if maintenance.maintenance_priority == "URGENT" %}
+
+                    <div class="maintenance-value priority-urgent">
+                        URGENT
+                    </div>
+
+                    {% elif maintenance.maintenance_priority == "HIGH" %}
+
+                    <div class="maintenance-value priority-high">
+                        HIGH
+                    </div>
+
+                    {% else %}
+
+                    <div class="maintenance-value priority-low">
+                        {{ maintenance.maintenance_priority }}
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="maintenance-item">
+
+                    <div class="maintenance-label">
+                        Historical Inspections
+                    </div>
+
+                    <div class="maintenance-value">
+                        {{ maintenance.history_count }}
+                    </div>
+
+                </div>
+
+
+                <div class="maintenance-item">
+
+                    <div class="maintenance-label">
+                        Recommended Action
+                    </div>
+
+                    <div class="maintenance-value">
+                        {{ maintenance.recommended_action }}
+                    </div>
+
+                </div>
+
+
+            </div>
+
+
+            <div class="maintenance-recommendation">
+
+                <strong>
+                    Maintenance Assessment
+                </strong>
+
+                <p>
+                    {{ maintenance.reason }}
+                </p>
+
+            </div>
+
+
+            <div class="prototype-note">
+                Prototype health assessment based on historical visual
+                inspection evidence. This score is not a certified
+                remaining-useful-life or industrial safety prediction.
+            </div>
+
+
+            {% else %}
+
+
+            <div class="maintenance-recommendation">
+
+                <strong>
+                    Maintenance Intelligence Unavailable
+                </strong>
+
+                <p>
+                    Historical incident evidence could not currently
+                    be retrieved from the maintenance data source.
+                </p>
+
+            </div>
+
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- VIDEO INSPECTION -->
 
         <div class="inspection-panel">
 
@@ -414,6 +771,7 @@
                 to analyse using AI detection, OpenCV temporal evidence,
                 growth analysis and agentic risk assessment.
             </p>
+
 
             <form
                 class="upload-form"
@@ -439,15 +797,16 @@
 
             </form>
 
+
             <div class="upload-note">
-                Supported for prototype testing: MP4, AVI and MOV inspection footage.
+                Supported for prototype testing:
+                MP4, AVI and MOV inspection footage.
             </div>
 
         </div>
 
-        <!-- =====================================
-             INCIDENT FEED
-        ====================================== -->
+
+        <!-- INCIDENT FEED -->
 
         <div class="section-header">
 
@@ -461,7 +820,9 @@
 
         </div>
 
+
         {% if incidents %}
+
 
         <div class="table-container">
 
@@ -470,30 +831,15 @@
                 <thead>
 
                     <tr>
-
-                        <th>
-                            Incident
-                        </th>
-
-                        <th>
-                            Risk
-                        </th>
-
-                        <th>
-                            Priority
-                        </th>
-
-                        <th>
-                            Status
-                        </th>
-
-                        <th>
-                            Recommended Action
-                        </th>
-
+                        <th>Incident</th>
+                        <th>Risk</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Recommended Action</th>
                     </tr>
 
                 </thead>
+
 
                 <tbody>
 
@@ -511,6 +857,7 @@
                             </a>
 
                         </td>
+
 
                         <td>
 
@@ -536,9 +883,11 @@
 
                         </td>
 
+
                         <td>
                             {{ incident.priority }}
                         </td>
+
 
                         <td>
 
@@ -570,6 +919,7 @@
 
                         </td>
 
+
                         <td>
 
                             <span class="action">
@@ -588,15 +938,20 @@
 
         </div>
 
+
         {% else %}
+
 
         <div class="empty">
             No incidents have been created yet.
         </div>
 
+
         {% endif %}
 
+
     </div>
+
 
 </body>
 
